@@ -16,9 +16,10 @@ subplot(4,2,2);pwelch(Signal1.ECG);
 subplot(4,2,3);plot(ECG1(maskPlot));
 subplot(4,2,4);pwelch(ECG1);
 % b = TrimmedFilter(ECG1,'median',(.2*fs));
+b=TrimmedFilter(ECG1,length(ECG1),'median',(.2*fs));
 % b = TrimmedFilter(b,'median',(.4*fs));
-% b = LPFilter(b,10/fs);
-b = mean(ECG1);
+b = TrimmedFilter(b,length(b),'median',(.4*fs));
+b = LPFilter(b',10/fs);
 ECG2 = ECG1 - b;
 subplot(4,2,5);plot(ECG2(maskPlot));
 subplot(4,2,6);pwelch(ECG2);
@@ -30,17 +31,27 @@ subplot(4,2,8);pwelch(ECG3);
 
 %% B
 peaksIdx = myFindPeaks2(ECG3);
+RR = diff(peaksIdx) / fs;
 % sdk = zeros(size(ECG3));
 % sdk(peaksIdx) = ECG3(peaksIdx);
-figure;hold on
+figure;
+subplot(211);
+hold on
 plot(ECG3,'r');
 % stem(sdk(maskPlot))
-plot(peaksIdx,ECG3(peaksIdx),'*')
+% plot(peaksIdx,RR,'*')
 
+disp(all(peaksIdx' == myFindPeaks3(ECG3)));
 
-
-
-
-
-
-
+idx2 = find(PeakDetection2(ECG3,180,1));
+plot(idx2, ECG3(idx2),'*')
+title('ECG Peak Detextion');
+% pd = PeakDetection(ECG3,180,1);
+% unique(pd)
+subplot(212);
+plot(RR);
+hold on;
+plot(RR,'o');
+title('RR');
+ax = gca;
+ax.XTick = 1:23;
