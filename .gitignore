@@ -1,8 +1,11 @@
 HW**
-*.rar
-*.zip
+
 *.swp
 *.asv
 *.crdownload
+*.tmp
+~*
 
+*.rar
+*.zip
 *.mat
