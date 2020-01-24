@@ -1,6 +1,6 @@
 # Datasets 
 
-
+you can download all datasets used in this project by clicking each below links.
 
 * [![download][download cloud] mit-bih-normal-sinus-rhythm-database-1.0.0.zip ![format : zip][zip file]](https://physionet.org/static/published-projects/nsrdb/mit-bih-normal-sinus-rhythm-database-1.0.0.zip)
 
@@ -13,6 +13,38 @@
 
 
 
+If you want to know which datasets used in which questions or series, there is following table that you can see this information.
+
+
+
+| Dataset | HW1/Q4 | HW1/Q5 | HW2/Q1 |
+| ------- | ------ | ------ | ------ |
+| mit-bih-normal-sinus-rhythm-database-1.0.0.zip |  |  | :heavy_check_mark: |
+| Signal1.mat | :heavy_check_mark: | | |
+| eegdata.mat | | | :heavy_check_mark: |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 [download icon]: https://img.icons8.com/metro/26/000000/download.png "download icon"
 [download cloud]: https://img.icons8.com/material/24/000000/download-from-cloud.png  "download icon"
@@ -20,4 +52,6 @@
 [zip file]: https://img.icons8.com/material/24/000000/zip.png  "file format icon (zip)"
 
 [unkown file]: https://img.icons8.com/material-outlined/24/000000/file.png  "file format icon"
+
+ 
 
