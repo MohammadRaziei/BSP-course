@@ -1,8 +1,10 @@
 disp('Question 1 is running ...');
 %% global variables or settings
+addpath(fullfile('../../../','DataSets'));
+load('eegdata.mat')
 fs = 250;
 t = ((1:2500)-1)/fs;
-task1 = data{1}{4};
+task = data{1}{4};
 plot(t,task(1,:))
 title(['C3',',',data{1}{1},',',data{1}{2},',',data{1}{3}]);xlabel('t(sec)');
 
