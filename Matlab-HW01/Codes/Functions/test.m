@@ -11,7 +11,7 @@
 % 
 % % peaksIdx = floor(0.5*(peaks1+peaks2));
 signalECG = ECG3;
-maxTh = max(ECG3);
+% maxTh = max(ECG);
 
 % buffLen = 120;
 % signalECGtemp = reshape(signalECG,[],buffLen);
@@ -23,28 +23,39 @@ maxTh = max(ECG3);
 
 mainLobe = 3;
 gaurd = 5;
-lag = floor(mainLobe/2)+gaurd;
-lag2 = floor(lag/2)+1;
+th = 75;
+extra = 8;
+
+% lag = floor(mainLobe/2)+gaurd;
+% lag2 = ceil(lag/2)+1;
 filt = [-1/(2*gaurd)*ones(1,gaurd) 1/mainLobe*ones(1,mainLobe) -1/(2*gaurd)*ones(1,gaurd)];
 
-y = filter(filt,1,signalECG);
-y = find(y > 100)-lag2;
+y0 = filter(filt,1,signalECG);
+y = find(y0 > th);
 diffY = diff(y);
 NonOneY = find(diffY~=1);
 idxx = zeros(length(NonOneY)+1,1);
 start = 1;
 for i = 1:length(idxx)-1
     endd = NonOneY(i);
-    [~,v] = max(signalECG(y(start:endd)));
-    idxx(i) = y(start+v-1);
-    start = endd+1;
+    start = y(start)-extra;
+    endd = y(endd);
+    
+    [~,v] = max(signalECG(start:endd));
+    idxx(i) = (start+v-1);
+    start = NonOneY(i)+1;
 end
-[~,v] = max(signalECG(y(start:end)));
-idxx(i+1) = y(start+v-1);
+% [~,v] = max(signalECG(start:y(end)));
+% idxx(i+1) = start+v-1;
+% start = y(end)-extra;
+start = y(start)-extra;
+[~,v] = max(signalECG(start:y(end)));
+idxx(i+1) = start+v-1;
 
 % 
-% clf;
-% plot(y,ECG3(y),'*');
-% % plot(y)
-% hold on;
-% plot(ECG3)
+clf;
+plot(idxx,signalECG(idxx),'*');
+% plot(y)
+hold on;
+plot(y0,'y')
+plot(signalECG)

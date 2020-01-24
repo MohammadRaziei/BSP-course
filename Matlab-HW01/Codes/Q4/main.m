@@ -1,6 +1,6 @@
 disp('Question 4 is running ...');
 %% global variables or settings
-addpath(fullfile('..','OSET'), fullfile('../OSET','Tools');
+addpath(fullfile('..','OSET'), fullfile('../OSET','Tools'));
 addpath(fullfile('../OSET/Tools/Mex Files','Filters'),fullfile('../OSET/Tools/Mex Files','MedianFilter3'),fullfile('../OSET/Tools/Mex Files','TrimmedFilter3'))
 addpath(fullfile('../../../','DataSets'));
 addpath(fullfile('..','Functions'))

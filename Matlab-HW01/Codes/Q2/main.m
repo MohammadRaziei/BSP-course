@@ -54,14 +54,17 @@ title("AIC")
 % [a,e] = levinson(r,n);
 
 %% D
-[Pxx,w_D] = pyulear(Y,5);
-figure;hold on
-plot(w(1:1000)/pi,20*log10(abs(h(1:1000))))
-plot(w_D/pi,10*log10(Pxx))
-legend('True Power Spectral Density','pyulear PSD Estimate')
-xlabel('Normalized Frequency (\times\pi rad/sample)')
-ylabel('Magnitude (dB)')
-
+figure('units','normalized','outerposition',[0 0 1 1]);
+for i = 3:10
+    [Pxx,w_D] = pyulear(Y,i);
+    subplot(2,4,i-2); hold on;
+    plot(w(1:1000)/pi,20*log10(abs(h(1:1000))))
+    plot(w_D/pi,10*log10(Pxx))
+    title(['AR(' num2str(i) ')']);
+    legend('True Power Spectral Density','pyulear PSD Estimate')
+    xlabel('Normalized Frequency (\times\pi rad/sample)')
+    ylabel('Magnitude (dB)')
+end
 %% E
 
 % approach — Algorithm for computing AR model
