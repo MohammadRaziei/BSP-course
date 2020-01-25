@@ -16,9 +16,9 @@ c3=1;c4=2;p3=3;p4=4;o1=5;o2=6;eog=7;
 % annotation('line', 0.65*[1,1], [0. 1], 'Color', 'r', 'LineWidth', 2);
 
 %% A
-% Noise = 3*cos(2*pi*60*t + 2*pi*rand(1,length(t)));
+Noise = 1*cos(2*pi*60*t + 2*pi*rand);
 
-% EEG = double(task(c3,:));
+EEG = double(task(c3,:));
 % EEG_N = EEG + Noise;
 
 
@@ -27,73 +27,76 @@ c3=1;c4=2;p3=3;p4=4;o1=5;o2=6;eog=7;
 % [y,err] = alf(x,d);
 % dsp.RLSFilter
 
-n0 = 110;
+% n0 = 110;
 % d = EEG_N(1:end-n0);
 % x = EEG_N(n0+1:end);
-d = EEG_N;
-x = Noise;
-rlsFilt = dsp.RLSFilter;
-[y,e] = rlsFilt(x',d');
+
+d = EEG;
+rlsFilt = dsp.RLSFilter(10);
+[y,e] = rlsFilt(Noise',d');
 % lmsFilt = dsp.LMSFilter;
 % [y,e] = lmsFilt(x',d');
-EEG_DN = e';
+EEG_DN = d-y';
 
 %% B
 
 figure;
 m = 1;
-subplot(311);plot(EEG(m:end),'k');
-title('primary EEG');
-subplot(312);plot(EEG_N(m:end),'g');
-title('noisy EEG');
+subplot(211);plot(EEG(m:end),'k');
+title('Raw EEG');
 % hold on; plot(EEG(m:end));
-subplot(313);plot(EEG_DN(m:end));
-title('denoised noisy EEG');
+subplot(212);plot(EEG_DN(m:end));
+title('Denoised EEG');
 ylim(20*[-1,1])
 
 
 
 figure;
-subplot(311); pwelch(EEG,fs);
-subplot(312); pwelch(EEG_N,fs);
-subplot(313); pwelch(EEG_DN,fs);
+subplot(211); pwelch(EEG,fs);
+subplot(212); pwelch(EEG_DN,fs);
 
 %% C
 SNR_in= @(s,n) 10*log10(sqrt(sum(s.^2))/sqrt(sum(n.^2)));
-SNR_out= @(s,y) 10*log10(sqrt(sum(s.^2))/sqrt(sum((s - y).^2)));
-SNR_imp = @(SNRout,SNRin) SNRout-SNRin;
+SNR_out= @(s,s_hat) 10*log10(sqrt(sum(s.^2))/sqrt(sum((s-s_hat).^2)));
+SNR_imp = @(s,n,s_hat) SNR_out(s,s_hat) - SNR_in(s,n);
 
 
 s=d;
 s_hat=d-y';
 snr_in = SNR_in(s, Noise)
 snr_out = SNR_out(s, s_hat)
-snr_imp = SNR_imp(snr_out,snr_in)
+snr_imp = SNR_imp(s,Noise,s_hat)
 
 %% D
-A=[0.5:0.5:5];
+A = 0.5:0.5:5;
+snrInArr = zeros(1,length(A));
+snrOutArr = zeros(1,length(A));
+snrImpArr = zeros(1,length(A));
 for i=1:length(A)
-    phi=(2*pi)*rand;
-    fs=250;
-    dt=1/fs;
-    t=0:dt:(2500-1)*dt;
-    n=A(i)*cos(2*pi*60.*t + phi);
-
-    L=10;
-    rls=dsp.LMSFilter(L);
-    rls.StepSize=0.003;
-    [n_hat,err,wts] = rls(n',(d)');
-    s=d;
-    s_hat=d-n_hat';
-    SNR_in=10*log10(sqrt(sum(s.^2))/sqrt(sum(n.^2)));
-    SNR_in_vec(i)=SNR_in;
+    n = A(i)*cos(2*pi*60.*t + (2*pi)*rand);
+    lmsFilt=dsp.LMSFilter(10);
+    lmsFilt.StepSize=0.003;
+    [y,e,wts] = lmsFilt(n',d');
     
-    SNR_out=10*log10(sqrt(sum(s.^2))/sqrt(sum((s-s_hat).^2)));
-    SNR_imp=SNR_out-SNR_in;
-    SNR_imp_vec(i)=SNR_imp;
+    s=d;
+    s_hat=d-y';
+    
+    snrInArr(i) = SNR_in(s,n);
+    snrOutArr(i) = SNR_out(s,s_hat);
+    snrImpArr(i)= SNR_imp(s,n,s_hat);
 end
 figure
-plot(SNR_in_vec,SNR_imp_vec)
+plot(snrInArr,snrImpArr)
+%% E
+
+
+w0=2*pi*60/fs;
+
+
+
+
+
+
 
 
 
