@@ -3,7 +3,7 @@ function idx = myFindPeaks3(signalECG)
 mainLobe = 3;
 gaurd = 5;
 th = 75;
-extra = 8;
+extra = 12;
 
 % lag = floor(mainLobe/2)+gaurd;
 % lag2 = ceil(lag/2)+1;

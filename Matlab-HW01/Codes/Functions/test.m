@@ -10,7 +10,7 @@
 % peaks2(length(peaks2) - find(diffpeaks1 < thx)) = [];
 % 
 % % peaksIdx = floor(0.5*(peaks1+peaks2));
-signalECG = ECG3;
+signalECG = ECG;
 % maxTh = max(ECG);
 
 % buffLen = 120;
