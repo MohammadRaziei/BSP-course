@@ -149,3 +149,35 @@ subplot(211);plot(SynchAvg)
 title('Result of Synchronous Averaging for Noise Stress Test Database - Algorithm 1')
 subplot(212);plot(SynchAvg2)
 title('Result of Synchronous Averaging for Noise Stress Test Database - Algorithm 2')
+
+% Robust Weighted Averaging
+
+SynchSignal=zeros(numSegments-2,beatLen);
+for i=2:numSegments
+    RR=peaksIdx(i)-lag:peaksIdx(i+1)-lag;
+    SynchSignal(i-1,1:length(RR))= NoisyECG(RR);
+end
+v=zeros(1,beatLen);
+for k=1:10
+    w = zeros(1,numSegments-1);
+    for i=1:numSegments-1
+        num=(norm(SynchSignal(i,:)-v))^(2/(1-m));
+        den=0;
+        for j=1:numSegments-1
+            den=den+(norm(SynchSignal(j,:)-v))^(2/(1-m));
+        end
+        w(i)=num/den;
+    end
+    num=0;
+    den=0;
+    for i=1:numSegments-1
+        num=num+(w(i)^m)*SynchSignal(i,:);
+        den=den+(w(i)^m);
+    end
+    v=num/den;
+end
+figure
+plot(v)
+title('Result of Robust Weighted Averaging for Noise Stress Test Database')
+
+
