@@ -20,130 +20,131 @@ for i=1:length(data)
     trial_cell{i}=data{1,i}{1,3};
 end
 
-multip_task = [];
-count_task = [];
+multip_task_idx = [];
+rotation_task_idx = [];
 for i=1:length(data)
     if isequal(task_cell{i},'multiplication')
-        multip_task = [multip_task i];
+        multip_task_idx = [multip_task_idx i];
     end
     if isequal(task_cell{i},'rotation')
-        count_task = [count_task i];
+        rotation_task_idx = [rotation_task_idx i];
     end
 end
 
-for i=1:length(multip_task)
-    multip_task_data{i}=data{1,multip_task(i)}{1,4};
+for i=1:length(multip_task_idx)
+    multip_task_data{i}=data{1,multip_task_idx(i)}{1,4};
 end
-for i=1:length(count_task)
-    count_task_data{i}=data{1,count_task(i)}{1,4};
+for i=1:length(rotation_task_idx)
+    rotation_task_data{i}=data{1,rotation_task_idx(i)}{1,4};
 end
 
 DataNumRows = size(multip_task_data{1},1);
 % Removing Noise from Multiplication Task Data
-for i=1:length(multip_task)
+for i=1:length(multip_task_idx)
     data=multip_task_data{i};
     for j=1:DataNumRows
         [num,den]=iirnotch(60/(fs/2),0.25/(fs/2));
-        EEG2(j,:) = filter(num,den,data(j,:));
+        temp(j,:) = filter(num,den,data(j,:));
     end
-    multip_task_filtered{i}= EEG2;
+    multip_task_filtered{i}= temp;
 end
-
 figure;
-subplot(211); pwelch(multip_task_data{1}(1,:))
-title('Multiplication Task Data before Noise Cancellation')
-subplot(212); pwelch(multip_task_filtered{1}(1,:))
-title('Multiplication Task Data before Noise Cancellation')
+subplot(211); pwelch(multip_task_data{1}(c3,:))
+title('Multiplication Task Data before Noise Cancellation (iirnotch)')
+subplot(212); pwelch(multip_task_filtered{1}(c3,:))
+title('Multiplication Task Data before Noise Cancellation (iirnotch)')
 
 % Removing Noise from Rotation Task Data
-for i=1:length(count_task)
-    data=count_task_data{i};
+for i=1:length(rotation_task_idx)
+    data=rotation_task_data{i};
     for j=1:DataNumRows
         [num,den]=iirnotch(60/(fs/2),0.25/(fs/2));
-        EEG2(j,:) = filter(num,den,data(j,:));
+        temp(j,:) = filter(num,den,data(j,:));
     end
-    rotation_task_filtered{i}= EEG2;
+    rotation_task_filtered{i}= temp;
 end
 figure
-subplot(211); pwelch(count_task_data{1}(1,:))
-title('Rotation Task Data before Noise Cancellation')
-subplot(212); pwelch(rotation_task_filtered{1}(1,:))
-title('Rotation Task Data after Noise Cancellation')
+subplot(211); pwelch(rotation_task_data{1}(c3,:))
+title('Rotation Task Data before Noise Cancellation (iirnotch)')
+subplot(212); pwelch(rotation_task_filtered{1}(c3,:))
+title('Rotation Task Data after Noise Cancellation (iirnotch)')
 
 % Removing EOG Noise from Multiplication Task Data
 L=20;
-rls=dsp.RLSFilter(L);
+rlsFilt = dsp.RLSFilter(L);
 
-for i=1:length(multip_task)
-    data=multip_task_filtered{i};
-    for j=1:6
-        [y,e] = rls(data(7,:)',(data(j,:))');
-        EEG2(j,:) = data(j,:)-y';
+for i=1:length(multip_task_idx)
+    data = multip_task_filtered{i};
+    for j=1:DataNumRows-1
+        [y,e] = rlsFilt(data(eog,:)',(data(eog,:))');
+        temp(j,:) = data(j,:) - y';
     end
-    multip_task_data_filt2{i}= EEG2;
+    multip_task_filtered2{i}= temp;
 end
 figure
-plot(multip_task_filtered{1}(1,:))
-title('Multiplication Task Data before Cancellation of EOG Noise')
-figure
-plot(multip_task_data_filt2{1}(1,:))
-title('Multiplication Task Data after Cancellation of EOG Noise')
+subplot(211); plot(multip_task_filtered{1}(c3,:))
+title('Multiplication Task Data before EOG Noise Cancellation')
+subplot(212); plot(multip_task_filtered2{1}(c3,:))
+title('Multiplication Task Data after EOG Noise Cancellation')
 
 % Removing EOG Noise from Rotation Task Data
-for i=1:length(count_task)
+for i=1:length(rotation_task_idx)
     data=rotation_task_filtered{i};
-    for j=1:6
-        [y,e] = rls(data(7,:)',(data(j,:))');
-        EEG2(j,:) = data(j,:)-y';
+    for j=1:DataNumRows-1
+        [y,e] = rlsFilt(data(eog,:)',(data(eog,:))');
+        temp(j,:) = data(j,:)-y';
     end
-    count_task_data_filt2{i}= EEG2;
+    rotation_task_filtered2{i}= temp;
 end
 figure
-plot(rotation_task_filtered{1}(1,:))
-title('Multiplication Task Data before Cancellation of EOG Noise')
-figure
-plot(count_task_data_filt2{1}(1,:))
-title('Multiplication Task Data after Cancellation of EOG Noise')
+subplot(211); plot(rotation_task_filtered{1}(1,:))
+title('Rotation Task Data before EOG Noise Cancellation')
+subplot(212); plot(rotation_task_filtered2{1}(1,:))
+title('Rotation Task Data after EOG Noise Cancellation')
 
-%% Dividing Dataset to Train and Test sets
-class_vec=[zeros(1,length(multip_task)) ones(1,length(count_task))];
+%% Dividing Dataset to Train and Test subsets
+% idx = randperm(z);
+% TrainX = (X(idx(1:round(Ptrain.*z)),:))';
+% TrainY = (Y(idx(1:round(Ptrain.*z)),:))';
+% TestX = (X(idx(round(Ptrain.*z)+1:end),:))';
+% TestY = (Y(idx(round(Ptrain.*z)+1:end),:))';
 
-rand_ind=randperm(2*length(multip_task));
+classes =[zeros(1,length(multip_task_idx)) ones(1,length(rotation_task_idx))];
+rand_idx=randperm(2*length(multip_task_idx));
+train_ind=rand_idx(1:floor(0.8*length(rand_idx)));
+train_classess=classes(train_ind);
 
-train_ind=rand_ind(1:0.8*length(rand_ind));
-train_classess=class_vec(train_ind);
-
-test_ind=rand_ind(0.8*length(rand_ind)+1:end);
-test_classess=class_vec(test_ind);
-all_train_data=[multip_task_data_filt2 count_task_data_filt2];
+test_ind=rand_idx(floor(0.8*length(rand_idx))+1:end);
+test_classess=classes(test_ind);
+train_data_all=[multip_task_filtered2 rotation_task_filtered2];
 
 for i=1:length(train_ind)
-    train_data{i}=all_train_data{(train_ind(i))}; 
+    train_data{i}=train_data_all{(train_ind(i))}; 
 end
 for i=1:length(test_ind)
-    test_data{i}=all_train_data{(test_ind(i))}; 
+    test_data{i}=train_data_all{(test_ind(i))}; 
 end
 
-%% PART A
-% Calculating the first feature: Band Power
+%% A
+% first feature: Band Power
 band_f0=[0 4 8 14];
 band_f1=[3 7 13 20];
-for i=1:0.8*length(all_train_data)
+for i=1:floor(0.8*length(train_data_all))
     EEG=train_data{i};
     for j=1:6
         for k=1:4
-            BW_Power(i,j,k)=bandpower(EEG(j,:),fs,[band_f0(k) band_f1(k)]);
+            band_Power(i,j,k)=bandpower(EEG(j,:),fs,[band_f0(k) band_f1(k)]);
         end
     end
 end
-% Calculating the second feature: Asymmetry Ratio
-for i=1:0.8*length(all_train_data)
+% second feature: Asymmetry Ratio
+for i=1:0.8*length(train_data_all)
     c=1;
     for j=1:2:5
         for k=2:2:6
             for l=1:4
-                R=BW_Power(i,k,l);
-                L=BW_Power(i,j,l);
+                R = band_Power(i,k,l);
+                L = band_Power(i,j,l);
                 AR(i,c)=(R-L)/(R+L);
                 c=c+1;
             end
@@ -151,30 +152,28 @@ for i=1:0.8*length(all_train_data)
     end
 end
 % Converting BW Power from rank 3 Tensor to rank 2 Tensor
-for i=1:0.8*length(all_train_data)
+for i=1:0.8*length(train_data_all)
     c=1;
     for j=1:6
         for k=1:4
-            BW_Power_Feature(i,c)=BW_Power(i,j,k);
+            BW_Power_Feature(i,c)=band_Power(i,j,k);
             c=c+1;
         end
     end
 end
 
-% Combining all features
+% Features Combinations
 all_features=[BW_Power_Feature AR];
 
-%% PART B
-% Finding the best feature
+%% B
+% Feature selection
 for i=1:60
     selected_feature=all_features(:,i);
     p_w0=length(find(train_classess==0));
     p_w1=length(find(train_classess==1));
     
-    mu_0=mean(selected_feature(train_classess==0,:));
-    mu_0=mu_0';
-    mu_1=mean(selected_feature(train_classess==1,:));
-    mu_1=mu_1';
+    mu_0=mean(selected_feature(train_classess==0,:))';
+    mu_1=mean(selected_feature(train_classess==1,:))';
     
     mu_total=p_w0*mu_0+p_w1*mu_1;
     %mu_total=mu_0+mu_1;
@@ -208,10 +207,8 @@ for i=k
     p_w0=length(find(train_classess==0));
     p_w1=length(find(train_classess==1));
     
-    mu_0=mean(selected_feature(train_classess==0,:));
-    mu_0=mu_0';
-    mu_1=mean(selected_feature(train_classess==1,:));
-    mu_1=mu_1';
+    mu_0=mean(selected_feature(train_classess==0,:))';
+    mu_1=mean(selected_feature(train_classess==1,:))';
     
     mu_total=p_w0*mu_0+p_w1*mu_1;
     %mu_total=mu_0+mu_1;
@@ -219,11 +216,12 @@ for i=k
     Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
     x0=selected_feature(train_classess==0,:);
     x1=selected_feature(train_classess==1,:);
+    % sum
     cov0=0;
     for j=1:length(x0)
-        %cov0=cov0+(x0(j,:)'-mu_0)*(x0(j,:)'-mu_0)';
         cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
     end
+    % sum
     cov1=0;
     for j=1:length(x1)
         %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
@@ -246,25 +244,20 @@ for i=k
     p_w0=length(find(train_classess==0));
     p_w1=length(find(train_classess==1));
     
-    mu_0=mean(selected_feature(train_classess==0,:));
-    mu_0=mu_0';
-    mu_1=mean(selected_feature(train_classess==1,:));
-    mu_1=mu_1';
+    mu_0=mean(selected_feature(train_classess==0,:))';
+    mu_1=mean(selected_feature(train_classess==1,:))';
     
-    mu_total=p_w0*mu_0+p_w1*mu_1;
-    %mu_total=mu_0+mu_1;
+    mu_total=(p_w0*mu_0+p_w1*mu_1)';
     mu_total=mu_total';
     Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
     x0=selected_feature(train_classess==0,:);
     x1=selected_feature(train_classess==1,:);
     cov0=0;
     for j=1:length(x0)
-        %cov0=cov0+(x0(j,:)'-mu_0)*(x0(j,:)'-mu_0)';
         cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
     end
     cov1=0;
     for j=1:length(x1)
-        %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
         cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
     end
 
@@ -280,7 +273,7 @@ scatter3(reduced_data(train_classess==0,1),reduced_data(train_classess==0,2),red
 hold on
 scatter3(reduced_data(train_classess==1,1),reduced_data(train_classess==1,2),reduced_data(train_classess==1,3))
 
-%% PART C
+%% C
 syms beta1 beta2 beta3
 beta=[beta1 beta2 beta3]';
 % Class 0
@@ -311,7 +304,7 @@ scatter3(reduced_data(train_classess==1,1),reduced_data(train_classess==1,2),red
 hold on
 fimplicit3(boundary==0)
 legend('Class 1','Class 2','Boundary')
-%% PART D: Entropy
+%% D: Entropy
 sigma=cov(reduced_data);
 [V,lambda]=eig(sigma);
 P=[V(:,1) V(:,2)];
@@ -351,7 +344,7 @@ fimplicit(boundary==0)
 legend('Class 1','Class 2','Boundary')
 title('Feature Reduction by Using Minimum Entropy')
 
-%% PART E: PCA
+%% E: PCA
 sigma=cov(reduced_data);
 [V,lambda]=eig(sigma);
 P=[V(:,3) V(:,2)];
@@ -390,7 +383,7 @@ hold on
 fimplicit(boundary==0)
 legend('Class 1','Class 2','Boundary')
 title('Feature Reduction by Using PCA')
-%% PART F: FLD
+%% F: FLD
 % Finding the best feature
 for i=1:3
     selected_feature=reduced_data(:,i);
@@ -496,7 +489,7 @@ fimplicit(boundary==0)
 legend('Class 1','Class 2','Boundary')
 title('Feature Reduction by Using FLD')
 
-%% PART G
+%% G
 % Calculating Test Features
 % Calculating the first feature: Band Power
 band_f0=[0 4 8 14];

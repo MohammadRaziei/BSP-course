@@ -69,37 +69,67 @@ snr_imp = SNR_imp(s,Noise,s_hat)
 
 %% D
 A = 0.5:0.5:5;
+mu=0.003;
 snrInArr = zeros(1,length(A));
 snrOutArr = zeros(1,length(A));
 snrImpArr = zeros(1,length(A));
-for i=1:length(A)
-    n = A(i)*cos(2*pi*60.*t + (2*pi)*rand);
+for shift=1:length(A)
+    n = A(shift)*cos(2*pi*60.*t + (2*pi)*rand);
     lmsFilt=dsp.LMSFilter(10);
-    lmsFilt.StepSize=0.003;
+    lmsFilt.StepSize= mu;
     [y,e,wts] = lmsFilt(n',d');
     
     s=d;
     s_hat=d-y';
     
-    snrInArr(i) = SNR_in(s,n);
-    snrOutArr(i) = SNR_out(s,s_hat);
-    snrImpArr(i)= SNR_imp(s,n,s_hat);
+    snrInArr(shift) = SNR_in(s,n);
+    snrOutArr(shift) = SNR_out(s,s_hat);
+    snrImpArr(shift)= SNR_imp(s,n,s_hat);
 end
 figure
 plot(snrInArr,snrImpArr)
 %% E
 
+A=1;
+M=10;
 
 w0=2*pi*60/fs;
+num=[1 -2*cos(w0) 1];
+den=[1 2*((mu*(M+1)*A^2)*cos(w0)/2) (1-mu*(M+1)*A^2)-2*cos(w0)];
+
+figure;
+% subplot(311);
+freqz(num,den)
+title('Frequency Response')
+figure;
+% subplot(312);
+impz(num,den)
+title('Impulse Response')
+figure;
+% subplot(313); 
+zplane(num,den)
+title('Zero-Pole Map')
 
 
 
+%% F
 
-
-
-
-
-
+snrInArr = zeros(1,100);
+snrImpArr = zeros(1,100);
+for shift=1:100
+    d_shift(1:shift)=0;
+    d_shift(shift+1:length(d))=d(1:end-shift);
+    lmsFilt=dsp.LMSFilter(10);
+    lmsFilt.StepSize = mu;
+    [n_hat,e] = lmsFilt(d_shift',d');
+    s = d_shift;
+    s_hat = e';
+    snrInArr(shift)=SNR_in(s,n_hat');
+    snrImpArr(shift)=SNR_imp(s,n_hat',s_hat);
+end
+figure
+plot(snrInArr,snrImpArr)
+figure; plot(n_hat)
 
 
 
