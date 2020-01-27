@@ -1,10 +1,4 @@
-<div style="direction:rtl">
-دانشجویان عزیز سلام
-سیگنال خواسته شده در تکلیف کامپیوتری اول به ضمیمه ارسال می شود. در ضمن برنامه های خواسته شده در لینک زیر قابل دسترسی است:
+There is a submodule for the 5th question, that is OSET toolbox for matlab written by Dr. sameni. here is main address : https://gitlab.com/rsameni/OSET.git
+but because of using gitlab instead of github, I prefer to fork it from main refrence and then add it as submodule. so following link is for it!
+https://github.com/MohammadRaziei/Fork-BSP-OSET
 
-https://gitlab.com/rsameni/OSET.git
-
-موفق باشید
-
-شمس الهی
-</div>

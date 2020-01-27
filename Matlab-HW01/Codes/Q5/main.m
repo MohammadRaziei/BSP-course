@@ -158,7 +158,7 @@ for i=2:numSegments
     SynchSignal(i-1,1:length(RR))= NoisyECG(RR);
 end
 v=zeros(1,beatLen);
-for k=1:10
+for k=1:15
     w = zeros(1,numSegments-1);
     for i=1:numSegments-1
         num=(norm(SynchSignal(i,:)-v))^(2/(1-m));

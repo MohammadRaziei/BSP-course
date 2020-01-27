@@ -10,49 +10,49 @@ t = ((1:2500)-1)/fs;
 c3=1;c4=2;p3=3;p4=4;o1=5;o2=6;eog=7;
 
 
-task_cell = cell(size(data));
-subject_cell = cell(size(data));
-trial_cell = cell(size(data));
+task_group = cell(size(data));
+subject_group = cell(size(data));
+trial_group = cell(size(data));
 
 for i=1:length(data)
-    subject_cell{i}=data{1,i}{1,1};
-    task_cell{i}=data{1,i}{1,2};
-    trial_cell{i}=data{1,i}{1,3};
+    subject_group{i}=data{1,i}{1,1};
+    task_group{i}=data{1,i}{1,2};
+    trial_group{i}=data{1,i}{1,3};
 end
 
 multip_task_idx = [];
 rotation_task_idx = [];
 for i=1:length(data)
-    if isequal(task_cell{i},'multiplication')
+    if isequal(task_group{i},'multiplication')
         multip_task_idx = [multip_task_idx i];
     end
-    if isequal(task_cell{i},'rotation')
+    if isequal(task_group{i},'rotation')
         rotation_task_idx = [rotation_task_idx i];
     end
 end
 
 for i=1:length(multip_task_idx)
-    multip_task_data{i}=data{1,multip_task_idx(i)}{1,4};
+    multiplication_task_data{i}=data{1,multip_task_idx(i)}{1,4};
 end
 for i=1:length(rotation_task_idx)
     rotation_task_data{i}=data{1,rotation_task_idx(i)}{1,4};
 end
 
-DataNumRows = size(multip_task_data{1},1);
+DataNumRows = size(multiplication_task_data{1},1);
 % Removing Noise from Multiplication Task Data
 for i=1:length(multip_task_idx)
-    data=multip_task_data{i};
+    data=multiplication_task_data{i};
     for j=1:DataNumRows
-        [num,den]=iirnotch(60/(fs/2),0.25/(fs/2));
+        [num,den] = iirnotch(60/(fs/2),0.25/(fs/2));
         temp(j,:) = filter(num,den,data(j,:));
     end
     multip_task_filtered{i}= temp;
 end
 figure;
-subplot(211); pwelch(multip_task_data{1}(c3,:))
-title('Multiplication Task Data before Noise Cancellation (iirnotch)')
+subplot(211); pwelch(multiplication_task_data{1}(c3,:))
+title('Multiplication Task : before Noise Cancellation (iirnotch)')
 subplot(212); pwelch(multip_task_filtered{1}(c3,:))
-title('Multiplication Task Data before Noise Cancellation (iirnotch)')
+title('Multiplication Task : before Noise Cancellation (iirnotch)')
 
 % Removing Noise from Rotation Task Data
 for i=1:length(rotation_task_idx)
@@ -65,13 +65,12 @@ for i=1:length(rotation_task_idx)
 end
 figure
 subplot(211); pwelch(rotation_task_data{1}(c3,:))
-title('Rotation Task Data before Noise Cancellation (iirnotch)')
+title('Rotation Task : before Noise Cancellation (iirnotch)')
 subplot(212); pwelch(rotation_task_filtered{1}(c3,:))
-title('Rotation Task Data after Noise Cancellation (iirnotch)')
+title('Rotation Task : after Noise Cancellation (iirnotch)')
 
 % Removing EOG Noise from Multiplication Task Data
-L=20;
-rlsFilt = dsp.RLSFilter(L);
+rlsFilt = dsp.RLSFilter(25);
 
 for i=1:length(multip_task_idx)
     data = multip_task_filtered{i};
@@ -83,9 +82,9 @@ for i=1:length(multip_task_idx)
 end
 figure
 subplot(211); plot(multip_task_filtered{1}(c3,:))
-title('Multiplication Task Data before EOG Noise Cancellation')
+title('Multiplication Task : before EOG Noise Cancellation')
 subplot(212); plot(multip_task_filtered2{1}(c3,:))
-title('Multiplication Task Data after EOG Noise Cancellation')
+title('Multiplication Task : after EOG Noise Cancellation')
 
 % Removing EOG Noise from Rotation Task Data
 for i=1:length(rotation_task_idx)
@@ -125,604 +124,375 @@ for i=1:length(test_ind)
     test_data{i}=train_data_all{(test_ind(i))}; 
 end
 
-%% A
-% first feature: Band Power
-band_f0=[0 4 8 14];
-band_f1=[3 7 13 20];
-for i=1:floor(0.8*length(train_data_all))
-    EEG=train_data{i};
-    for j=1:6
-        for k=1:4
-            band_Power(i,j,k)=bandpower(EEG(j,:),fs,[band_f0(k) band_f1(k)]);
+
+%% A, B
+delta_feature = zeros(104,6);
+theta_feature = zeros(104,6);
+alpha_feature = zeros(104,6);
+beta_feature  = zeros(104,6);
+f = 125/2*linspace(0,1,1024/2+1);
+delta_f = f(2)-f(1);
+ch = [3, 5, 8, 12, 19, 21];
+for i = 1:2
+    for j = 1:86
+        for k = 1:6
+        pxx = pwelch(class(ch(k),625:1000,86*(i-1)+j),125,100,1024);
+        delta_feature(86*(i-1)+j,k) = sum(pxx(1:32).^2)*delta_f;
+        theta_feature(86*(i-1)+j,k) = sum(pxx(33:66).^2)*delta_f;
+        alpha_feature(86*(i-1)+j,k) = sum(pxx(67:107).^2)*delta_f;
+        beta_feature(86*(i-1)+j,k)  = sum(pxx(108:247).^2)*delta_f;
         end
     end
 end
-% second feature: Asymmetry Ratio
-for i=1:0.8*length(train_data_all)
-    c=1;
-    for j=1:2:5
-        for k=2:2:6
-            for l=1:4
-                R = band_Power(i,k,l);
-                L = band_Power(i,j,l);
-                AR(i,c)=(R-L)/(R+L);
-                c=c+1;
-            end
-        end
-    end
+%%%%%% Asymmetry_ratio
+asymmetry_ratio_delta_feature = zeros(104,9);
+asymmetry_ratio_theta_feature = zeros(104,9);
+asymmetry_ratio_alpha_feature = zeros(104,9);
+asymmetry_ratio_beta_feature  = zeros(104,9);
+pair_ch = [3 5;3 12;3 21;8 5;8 12;8 21;19 5;19 12;19 21];
+for i = 1:2
+for j = 1:86
+for k = 1:9
+ch_R = find(ch == pair_ch(k,2));
+ch_L = find(ch == pair_ch(k,1));
+asymmetry_ratio_delta_feature(86*(i-1)+j,k) = (delta_feature(86*(i-1)+j,ch_R)-delta_feature(86*(i-1)+j,ch_L))/(delta_feature(86*(i-1)+j,ch_R)+delta_feature(86*(i-1)+j,ch_L));
+asymmetry_ratio_theta_feature(86*(i-1)+j,k) = (theta_feature(86*(i-1)+j,ch_R)-theta_feature(86*(i-1)+j,ch_L))/(theta_feature(86*(i-1)+j,ch_R)+theta_feature(86*(i-1)+j,ch_L));
+asymmetry_ratio_alpha_feature(86*(i-1)+j,k) = (alpha_feature(86*(i-1)+j,ch_R)-alpha_feature(86*(i-1)+j,ch_L))/(alpha_feature(86*(i-1)+j,ch_R)+alpha_feature(86*(i-1)+j,ch_L));
+asymmetry_ratio_beta_feature(86*(i-1)+j,k)  = (beta_feature(86*(i-1)+j,ch_R)-beta_feature(86*(i-1)+j,ch_L))/(beta_feature(86*(i-1)+j,ch_R)+beta_feature(86*(i-1)+j,ch_L));
 end
-% Converting BW Power from rank 3 Tensor to rank 2 Tensor
-for i=1:0.8*length(train_data_all)
-    c=1;
-    for j=1:6
-        for k=1:4
-            BW_Power_Feature(i,c)=band_Power(i,j,k);
-            c=c+1;
-        end
+end
+end
+all_features = [delta_feature,theta_feature,alpha_feature,beta_feature,asymmetry_ratio_delta_feature,asymmetry_ratio_theta_feature,asymmetry_ratio_alpha_feature,asymmetry_ratio_beta_feature];
+v=1:1:104;
+v=v(randperm(104));
+all_features_shuffle = all_features(v,:);
+all_features_train   = all_features(1:115,:);
+all_features_test    = all_features(116:104,:);
+label= ones(104,1);
+label(73:104)  = 2*ones(86,1);
+label = label(v,:);
+label_train = label(1:115,:);
+label_test  = label(116:104);
+%%  C
+index_class_1 = find(label_train==1);
+index_class_2 = find(label_train==2);
+m1 = mean(all_features_train(index_class_1,:),1);
+m2 = mean(all_features_train(index_class_2,:),1);
+var1 = var(all_features_train(index_class_1,:),1);
+var2 = var(all_features_train(index_class_2,:),1);
+m = mean(all_features_train,1);
+fisher_score = zeros(1,60);
+for i = 1:60
+   fisher_score(1,i) =  [(m1(i)-m(i))^2 + (m2(i)-m(i))^2]/(var1(i)+var2(i));
+end
+first_feature = find(fisher_score==max(fisher_score));
+index = 1:60;
+index(first_feature) = [];
+fisher_score = zeros(1,59);
+for j = 1:59
+    a = [all_features_train(:,first_feature),all_features_train(:,index(j))];
+    m1 = mean(a(index_class_1,:),1);
+    m2 = mean(a(index_class_2,:),1);
+    var1 = var(a(index_class_1,:),1);
+    var2 = var(a(index_class_2,:),1);
+    m = mean(a,1);
+    S_b = (m1' - m')*(m1' - m')' + (m2' - m')*(m2' - m')';
+    S1 = zeros(2,2);
+    S2 = zeros(2,2);
+    for i = 1:length(index_class_1);
+        S1 = S1 + (a(index_class_1(i),:)' - m1')*(a(index_class_1(i),:)' - m1')';
     end
+    for i = 1:length(index_class_2)
+        S2 = S2 + (a(index_class_2(i),:)' - m2')*(a(index_class_2(i),:)' - m2')';
+    end
+    % scattering within class
+    S_w = [length(index_class_1)*S1 + length(index_class_2)*S2] / [length(index_class_1)+length(index_class_2)];
+    fisher_score(j) = trace(S_b)/trace(S_w);
+end
+second_feature = index(find(fisher_score==max(fisher_score)));
+
+index = 1:60;
+index(second_feature) = [];
+index(first_feature)  = [];
+fisher_score = zeros(1,58);
+for j = 1:58
+    a = [all_features_train(:,first_feature),all_features_train(:,second_feature),all_features_train(:,index(j))];
+    m1 = mean(a(index_class_1,:),1);
+    m2 = mean(a(index_class_2,:),1);
+    var1 = var(a(index_class_1,:),1);
+    var2 = var(a(index_class_2,:),1);
+    m = mean(a,1);
+    S_b = (m1' - m')*(m1' - m')' + (m2' - m')*(m2' - m')';
+    S1 = zeros(3,3);
+    S2 = zeros(3,3);
+    for i = 1:length(index_class_1)
+        S1 = S1 + (a(index_class_1(i),:)' - m1')*(a(index_class_1(i),:)' - m1')';
+    end
+    for i = 1:length(index_class_2)
+        S2 = S2 + (a(index_class_2(i),:)' - m2')*(a(index_class_2(i),:)' - m2')';
+    end
+    % scattering within class
+    S_w = [length(index_class_1)*S1 + length(index_class_2)*S2] / [length(index_class_1)+length(index_class_2)];
+    fisher_score(j) = trace(S_b)/trace(S_w);
+end
+third_feature = index(find(fisher_score==max(fisher_score)));
+
+%%  D
+syms b1
+syms b2
+syms b3
+cov_class_1 = cov(all_features_train(index_class_1,[first_feature, second_feature, third_feature]));
+cov_class_2 = cov(all_features_train(index_class_2,[first_feature, second_feature, third_feature]));
+
+m1 = mean(all_features_train(index_class_1,[first_feature, second_feature, third_feature]),1)';
+m2 = mean(all_features_train(index_class_2,[first_feature, second_feature, third_feature]),1)';
+
+% boundary of first class
+A_1 = (-0.5)*inv(cov_class_1);
+b_1 = inv(cov_class_1) * m1;
+c_1 = (-0.5)* m1' * inv(cov_class_1) * m1 - 0.5 * log(det(cov_class_1));
+d_1 = [b1 b2 b3]*A_1*[b1; b2; b3] + b_1'*[b1; b2; b3] + c_1;
+% boundary of second class
+A_2 = (-0.5)*inv(cov_class_2);
+b_2 = inv(cov_class_2) * m2;
+c_2 = (-0.5)* m2' * inv(cov_class_2) * m2 - 0.5 * log(det(cov_class_2));
+d_2 = [b1 b2 b3]*A_2*[b1; b2; b3] + b_2'*[b1; b2; b3] + c_2;
+
+figure();
+plot3(all_features_train(index_class_1,first_feature),all_features_train(index_class_1,second_feature),all_features_train(index_class_1,third_feature),'r*');
+hold on
+plot3(all_features_train(index_class_2,first_feature),all_features_train(index_class_2,second_feature),all_features_train(index_class_2,third_feature),'g*');
+xlabel('X')
+ylabel('Y')
+zlabel('Z')
+legend('class 1','class 2')
+
+% bayes classification
+pred_bayes = zeros(1,29);
+for i = 1:29
+    bayes_value = zeros(1,2);
+    bayes_value(1) = subs(d_1, [b1, b2, b3], [all_features_test(i,first_feature), all_features_test(i,second_feature), all_features_test(i,third_feature)]);
+    bayes_value(2) = subs(d_2, [b1, b2, b3], [all_features_test(i,first_feature), all_features_test(i,second_feature), all_features_test(i,third_feature)]);
+    pred_bayes(1,i) = find(bayes_value==max(bayes_value));
+end
+acc_bayes_with_three_features = sum(eq(label_test',pred_bayes))/29;
+%  Euclidean distance classification
+pred_Euclidean = zeros(1,29);
+for i = 1:29
+   Euclidean_value = zeros(1,2);
+   Euclidean_value(1) = sqrt(sum((all_features_test(i,[first_feature,second_feature,third_feature])-m1').^2));
+   Euclidean_value(2) = sqrt(sum((all_features_test(i,[first_feature,second_feature,third_feature])-m2').^2));
+   pred_Euclidean(1,i) = find(Euclidean_value==min(Euclidean_value));
+end
+acc_Euclidean_with_three_features = sum(eq(label_test',pred_Euclidean))/29;
+%  Mahalanobis distance classification
+d_M_1 = -0.5*([b1;b2;b3]-m1)' * inv(cov_class_1) * ([b1;b2;b3]-m1);
+d_M_2 = -0.5*([b1;b2;b3]-m2)' * inv(cov_class_2) * ([b1;b2;b3]-m2);
+pred_Mahalanobis = zeros(1,29);
+for i = 1:29
+    Mahalanobis_value = zeros(1,2);
+    Mahalanobis_value(1) = subs(d_M_1, [b1, b2, b3], [all_features_test(i,first_feature), all_features_test(i,second_feature), all_features_test(i,third_feature)]);
+    Mahalanobis_value(2) = subs(d_M_2, [b1, b2, b3], [all_features_test(i,first_feature), all_features_test(i,second_feature), all_features_test(i,third_feature)]);
+    pred_Mahalanobis(1,i) = find(Mahalanobis_value==min(Mahalanobis_value));
+end
+acc_Mahalanobis_with_three_features = sum(eq(label_test',pred_Mahalanobis))/29;
+%%  E
+covariance = cov(all_features_train(:,[first_feature,second_feature,third_feature]));
+[eigen_vector ~] = eig(covariance);
+W = eigen_vector(:,[1,2]);
+new_data = W' * all_features_train(:,[first_feature,second_feature,third_feature])';
+new_data_test = W' * all_features_test(:,[first_feature,second_feature,third_feature])';
+figure();
+plot(new_data(1,index_class_1),new_data(2,index_class_1),'r*');
+hold on
+plot(new_data(1,index_class_2),new_data(2,index_class_2),'g*');
+
+cov_class_1 = cov(new_data(:,index_class_1)');
+cov_class_2 = cov(new_data(:,index_class_2)');
+
+m1 = mean(new_data(:,index_class_1)',1)';
+m2 = mean(new_data(:,index_class_2)',1)';
+
+% boundary of first class
+A_1 = (-0.5)*inv(cov_class_1);
+b_1 = inv(cov_class_1) * m1;
+c_1 = (-0.5)* m1' * inv(cov_class_1) * m1 - 0.5 * log(det(cov_class_1));
+d_1 = A_1(1,1)*b1^2 + A_1(2,2)*b2^2 + (A_1(1,2)+A_1(2,1))*b1*b2 + b_1(1,1)*b1 + b_1(2,1)*b2 + c_1;
+% boundary of second class
+A_2 = (-0.5)*inv(cov_class_2);
+b_2 = inv(cov_class_2) * m2;
+c_2 = (-0.5)* m2' * inv(cov_class_2) * m2 - 0.5 * log(det(cov_class_2));
+d_2 = A_2(1,1)*b1^2 + A_2(2,2)*b2^2 + (A_2(1,2)+A_2(2,1))*b1*b2 + b_2(1,1)*b1 + b_2(2,1)*b2 + c_2;
+
+%  plot boundary
+hold on
+ezplot(d_1==d_2,[1.5*min(new_data(1,:)),1.5*max(new_data(1,:)),1.5*min(new_data(2,:)),1.5*max(new_data(2,:))]);
+
+title('Entropy')
+legend('class 1','class 2')
+% bayes classification
+pred_bayes = zeros(1,29);
+for i = 1:29
+    bayes_value = zeros(1,2);
+    bayes_value(1) = subs(d_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    bayes_value(2) = subs(d_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    pred_bayes(1,i) = find(bayes_value==max(bayes_value));
+end
+acc_bayes_with_two_Entropy_features = sum(eq(label_test',pred_bayes))/29;
+%  Euclidean distance classification
+pred_Euclidean = zeros(1,29);
+for i = 1:29
+   Euclidean_value = zeros(1,2);
+   Euclidean_value(1) = sqrt(sum((new_data_test(:,i)-m1).^2));
+   Euclidean_value(2) = sqrt(sum((new_data_test(:,i)-m2).^2));
+   pred_Euclidean(1,i) = find(Euclidean_value==min(Euclidean_value));
+end
+acc_Euclidean_with_two_Entropy_features = sum(eq(label_test',pred_Euclidean))/29;
+%  Mahalanobis distance classification
+d_M_1 = -0.5*([b1;b2]-m1)' * inv(cov_class_1) * ([b1;b2]-m1);
+d_M_2 = -0.5*([b1;b2]-m2)' * inv(cov_class_2) * ([b1;b2]-m2);
+
+pred_Mahalanobis = zeros(1,29);
+for i = 1:29
+    Mahalanobis_value = zeros(1,2);
+    Mahalanobis_value(1) = subs(d_M_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    Mahalanobis_value(2) = subs(d_M_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    pred_Mahalanobis(1,i) = find(Mahalanobis_value==min(Mahalanobis_value));
+end
+acc_Mahalanobis_with_two_Entropy_features = sum(eq(label_test',pred_Mahalanobis))/29;
+%%  F
+m1 = mean(all_features_train(index_class_1,[first_feature, second_feature, third_feature]),1)';
+m2 = mean(all_features_train(index_class_2,[first_feature, second_feature, third_feature]),1)';
+m  = mean(all_features_train(:,[first_feature, second_feature, third_feature]),1)';
+S1 = zeros(3,3);
+for i = 1:length(index_class_1)
+   S1 = S1 + (all_features_train(index_class_1(i),[first_feature, second_feature, third_feature])'-m1)*(all_features_train(index_class_1(i),[first_feature, second_feature, third_feature])'-m1)';
+end
+S2 = zeros(3,3);
+for i = 1:length(index_class_2)
+   S2 = S2 + (all_features_train(index_class_2(i),[first_feature, second_feature, third_feature])'-m2)*(all_features_train(index_class_2(i),[first_feature, second_feature, third_feature])'-m2)';
 end
 
-% Features Combinations
-all_features=[BW_Power_Feature AR];
+S_W = [length(index_class_1)*S1 + length(index_class_2)*S2] / [length(index_class_1)+length(index_class_2)];
+S_B = (m1-m)*(m1-m)' + (m2-m)*(m2-m)';
+[eigen_vectors, eigen_values] = eig(S_W,S_B);
+W_GEVD = eigen_vectors(:,2:3);
+new_data = W_GEVD' * all_features_train(:,[first_feature,second_feature,third_feature])';
+new_data_test = W_GEVD' * all_features_test(:,[first_feature,second_feature,third_feature])';
+figure();
+plot(new_data(1,index_class_1),new_data(2,index_class_1),'r*');
+hold on
+plot(new_data(1,index_class_2),new_data(2,index_class_2),'g*');
+%  plot boundary
+hold on
+ezplot(d_1==d_2,[1.5*min(new_data(1,:)),1.5*max(new_data(1,:)),1.5*min(new_data(2,:)),1.5*max(new_data(2,:))]);
+title('Fisher')
+legend('class 1','class 2')
+cov_class_1 = cov(new_data(:,index_class_1)');
+cov_class_2 = cov(new_data(:,index_class_2)');
+m1 = mean(new_data(:,index_class_1)',1)';
+m2 = mean(new_data(:,index_class_2)',1)';
+% boundary of first class
+A_1 = (-0.5)*inv(cov_class_1);
+b_1 = inv(cov_class_1) * m1;
+c_1 = (-0.5)* m1' * inv(cov_class_1) * m1 - 0.5 * log(det(cov_class_1));
+d_1 = A_1(1,1)*b1^2 + A_1(2,2)*b2^2 + (A_1(1,2)+A_1(2,1))*b1*b2 + b_1(1,1)*b1 + b_1(2,1)*b2 + c_1;
+% boundary of second class
+A_2 = (-0.5)*inv(cov_class_2);
+b_2 = inv(cov_class_2) * m2;
+c_2 = (-0.5)* m2' * inv(cov_class_2) * m2 - 0.5 * log(det(cov_class_2));
+d_2 = A_2(1,1)*b1^2 + A_2(2,2)*b2^2 + (A_2(1,2)+A_2(2,1))*b1*b2 + b_2(1,1)*b1 + b_2(2,1)*b2 + c_2;
 
-%% B
-% Feature selection
-for i=1:60
-    selected_feature=all_features(:,i);
-    p_w0=length(find(train_classess==0));
-    p_w1=length(find(train_classess==1));
-    
-    mu_0=mean(selected_feature(train_classess==0,:))';
-    mu_1=mean(selected_feature(train_classess==1,:))';
-    
-    mu_total=p_w0*mu_0+p_w1*mu_1;
-    %mu_total=mu_0+mu_1;
-    mu_total=mu_total';
-    Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
-    x0=selected_feature(train_classess==0,:);
-    x1=selected_feature(train_classess==1,:);
-    cov0=0;
-    for j=1:length(x0)
-        %cov0=cov0+(x0(j,:)'-mu_0)*(x0(j,:)'-mu_0)';
-        cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
-    end
-    cov1=0;
-    for j=1:length(x1)
-        %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
-        cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
-    end
+pred_bayes = zeros(1,29);
+for i = 1:29
+    bayes_value = zeros(1,2);
+    bayes_value(1) = subs(d_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    bayes_value(2) = subs(d_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
 
-    %Sw=p_w0*cov0+p_w1*cov1;
-    Sw=cov0+cov1;
-    J(i)=trace(Sb)/trace(Sw);
+    pred_bayes(1,i) = find(bayes_value==max(bayes_value));
 end
-best_feature=find(J==max(J));
+acc_bayes_with_two_Fisher_features = sum(eq(label_test',pred_bayes))/29;
+%  Euclidean distance classification
+pred_Euclidean = zeros(1,29);
+for i = 1:29
+   Euclidean_value = zeros(1,2);
+   Euclidean_value(1) = sqrt(sum((new_data_test(:,i)-m1).^2));
+   Euclidean_value(2) = sqrt(sum((new_data_test(:,i)-m2).^2));
 
-% Finding the second best feature
-k=1:60;
-k=setdiff(k,best_feature);
-J=0;
-for i=k
-    selected_feature=[all_features(:,best_feature) all_features(:,i) ];
-    p_w0=length(find(train_classess==0));
-    p_w1=length(find(train_classess==1));
-    
-    mu_0=mean(selected_feature(train_classess==0,:))';
-    mu_1=mean(selected_feature(train_classess==1,:))';
-    
-    mu_total=p_w0*mu_0+p_w1*mu_1;
-    %mu_total=mu_0+mu_1;
-    mu_total=mu_total';
-    Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
-    x0=selected_feature(train_classess==0,:);
-    x1=selected_feature(train_classess==1,:);
-    % sum
-    cov0=0;
-    for j=1:length(x0)
-        cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
-    end
-    % sum
-    cov1=0;
-    for j=1:length(x1)
-        %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
-        cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
-    end
-
-    %Sw=p_w0*cov0+p_w1*cov1;
-    Sw=cov0+cov1;
-    J(i)=trace(Sb)/trace(Sw);
+   s = find(Euclidean_value==min(Euclidean_value));
+   pred_Euclidean(1,i) = s(1);
 end
-best_feature2=find(J==max(J));
+acc_Euclidean_with_two_Fisher_features = sum(eq(label_test',pred_Euclidean))/29;
+%  Mahalanobis distance classification
+d_M_1 = -0.5*([b1;b2]-m1)' * inv(cov_class_1) * ([b1;b2]-m1);
+d_M_2 = -0.5*([b1;b2]-m2)' * inv(cov_class_2) * ([b1;b2]-m2);
 
+pred_Mahalanobis = zeros(1,29);
+for i = 1:29
+    Mahalanobis_value = zeros(1,2);
+    Mahalanobis_value(1) = subs(d_M_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    Mahalanobis_value(2) = subs(d_M_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
 
-% Finding the third best feature
-k=1:60;
-k=setdiff(k,[best_feature best_feature2]);
-J=0;
-for i=k
-    selected_feature=[all_features(:,best_feature) all_features(:,best_feature2) all_features(:,i) ];
-    p_w0=length(find(train_classess==0));
-    p_w1=length(find(train_classess==1));
-    
-    mu_0=mean(selected_feature(train_classess==0,:))';
-    mu_1=mean(selected_feature(train_classess==1,:))';
-    
-    mu_total=(p_w0*mu_0+p_w1*mu_1)';
-    mu_total=mu_total';
-    Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
-    x0=selected_feature(train_classess==0,:);
-    x1=selected_feature(train_classess==1,:);
-    cov0=0;
-    for j=1:length(x0)
-        cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
-    end
-    cov1=0;
-    for j=1:length(x1)
-        cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
-    end
-
-    %Sw=p_w0*cov0+p_w1*cov1;
-    Sw=cov0+cov1;
-    J(i)=trace(Sb)/trace(Sw);
+    pred_Mahalanobis(1,i) = find(Mahalanobis_value==min(Mahalanobis_value));
 end
-best_feature3=find(J==max(J));
-all_best_features=[best_feature best_feature2 best_feature3];
-reduced_data=[all_features(:,best_feature) all_features(:,best_feature2) all_features(:,best_feature3)];
-figure
-scatter3(reduced_data(train_classess==0,1),reduced_data(train_classess==0,2),reduced_data(train_classess==0,3))
-hold on
-scatter3(reduced_data(train_classess==1,1),reduced_data(train_classess==1,2),reduced_data(train_classess==1,3))
-
-%% C
-syms beta1 beta2 beta3
-beta=[beta1 beta2 beta3]';
-% Class 0
-x0=reduced_data(train_classess==0,:);
-mu0=mean(x0)';
-sigma0=cov(x0);
-A0=-0.5*inv(sigma0);
-b0=inv(sigma0)*mu0;
-c0=-0.5*mu0'*sigma0*mu0-0.5*det(sigma0);
-d0=beta'*A0*beta + b0'*beta + c0;
-
-% Class 1
-x1=reduced_data(train_classess==1,:);
-mu1=mean(x1)';
-sigma1=cov(x1);
-A1=-0.5*inv(sigma1);
-b1=inv(sigma1)*mu1;
-c1=-0.5*mu1'*sigma1*mu1-0.5*det(sigma1);
-d1=beta'*A1*beta + b1'*beta + c1;
-boundary=d0-d1;
-boundary_bayes_bayesian=boundary;
-boundary_euclidean_bayesian=sqrt(sum(beta-mu0).^2)-sqrt(sum(beta-mu1).^2);
-boundary_mah_bayesian=-0.5*(beta-mu0)' * inv(sigma0) * (beta-mu0) + 0.5*(beta-mu1)' * inv(sigma1) * (beta-mu1);
-figure
-scatter3(reduced_data(train_classess==0,1),reduced_data(train_classess==0,2),reduced_data(train_classess==0,3))
-hold on
-scatter3(reduced_data(train_classess==1,1),reduced_data(train_classess==1,2),reduced_data(train_classess==1,3))
-hold on
-fimplicit3(boundary==0)
-legend('Class 1','Class 2','Boundary')
-%% D: Entropy
-sigma=cov(reduced_data);
-[V,lambda]=eig(sigma);
-P=[V(:,1) V(:,2)];
-P_entropy=P;
-for i=1:size(reduced_data,1)
-    entropy_reduced_data(i,:)=P'*reduced_data(i,:)';
-end
-syms beta1 beta2
-beta=[beta1 beta2]';
-% Class 0
-x0=entropy_reduced_data(train_classess==0,:);
-mu0=mean(x0)';
-sigma0=cov(x0);
-A0=-0.5*inv(sigma0);
-b0=inv(sigma0)*mu0;
-c0=-0.5*mu0'*sigma0*mu0-0.5*det(sigma0);
-d0=beta'*A0*beta + b0'*beta + c0;
-
-% Class 1
-x1=entropy_reduced_data(train_classess==1,:);
-mu1=mean(x1)';
-sigma1=cov(x1);
-A1=-0.5*inv(sigma1);
-b1=inv(sigma1)*mu1;
-c1=-0.5*mu1'*sigma1*mu1-0.5*det(sigma1);
-d1=beta'*A1*beta + b1'*beta + c1;
-boundary=d0-d1;
-boundary_bayes_entropy=boundary;
-boundary_euclidean_entropy=sqrt(sum(beta-mu0).^2)-sqrt(sum(beta-mu1).^2);
-boundary_mah_entropy=-0.5*(beta-mu0)' * inv(sigma0) * (beta-mu0) + 0.5*(beta-mu1)' * inv(sigma1) * (beta-mu1);
-figure
-scatter(entropy_reduced_data(train_classess==0,1),entropy_reduced_data(train_classess==0,2))
-hold on
-scatter(entropy_reduced_data(train_classess==1,1),entropy_reduced_data(train_classess==1,2))
-hold on
-fimplicit(boundary==0)
-legend('Class 1','Class 2','Boundary')
-title('Feature Reduction by Using Minimum Entropy')
-
-%% E: PCA
-sigma=cov(reduced_data);
-[V,lambda]=eig(sigma);
-P=[V(:,3) V(:,2)];
-P_pca=P;
-for i=1:size(reduced_data,1)
-    pca_reduced_data(i,:)=P'*reduced_data(i,:)';
-end
-syms beta1 beta2
-beta=[beta1 beta2]';
-% Class 0
-x0=pca_reduced_data(train_classess==0,:);
-mu0=mean(x0)';
-sigma0=cov(x0);
-A0=-0.5*inv(sigma0);
-b0=inv(sigma0)*mu0;
-c0=-0.5*mu0'*sigma0*mu0-0.5*det(sigma0);
-d0=beta'*A0*beta + b0'*beta + c0;
-
-% Class 1
-x1=pca_reduced_data(train_classess==1,:);
-mu1=mean(x1)';
-sigma1=cov(x1);
-A1=-0.5*inv(sigma1);
-b1=inv(sigma1)*mu1;
-c1=-0.5*mu1'*sigma1*mu1-0.5*det(sigma1);
-d1=beta'*A1*beta + b1'*beta + c1;
-boundary=d0-d1;
-boundary_bayes_pca=boundary;
-boundary_euclidean_pca=sqrt(sum(beta-mu0).^2)-sqrt(sum(beta-mu1).^2);
-boundary_mah_pca=-0.5*(beta-mu0)' * inv(sigma0) * (beta-mu0) + 0.5*(beta-mu1)' * inv(sigma1) * (beta-mu1);
-figure
-scatter(pca_reduced_data(train_classess==0,1),pca_reduced_data(train_classess==0,2))
-hold on
-scatter(pca_reduced_data(train_classess==1,1),pca_reduced_data(train_classess==1,2))
-hold on
-fimplicit(boundary==0)
-legend('Class 1','Class 2','Boundary')
-title('Feature Reduction by Using PCA')
-%% F: FLD
-% Finding the best feature
-for i=1:3
-    selected_feature=reduced_data(:,i);
-    p_w0=length(find(train_classess==0));
-    p_w1=length(find(train_classess==1));
-    
-    mu_0=mean(selected_feature(train_classess==0,:));
-    mu_0=mu_0';
-    mu_1=mean(selected_feature(train_classess==1,:));
-    mu_1=mu_1';
-    
-    mu_total=p_w0*mu_0+p_w1*mu_1;
-    %mu_total=mu_0+mu_1;
-    mu_total=mu_total';
-    Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
-    x0=selected_feature(train_classess==0,:);
-    x1=selected_feature(train_classess==1,:);
-    cov0=0;
-    for j=1:length(x0)
-        %cov0=cov0+(x0(j,:)'-mu_0)*(x0(j,:)'-mu_0)';
-        cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
-    end
-    cov1=0;
-    for j=1:length(x1)
-        %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
-        cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
-    end
-
-    %Sw=p_w0*cov0+p_w1*cov1;
-    Sw=cov0+cov1;
-    J(i)=trace(Sb)/trace(Sw);
-end
-best_feature=find(J==max(J));
-
-% Finding the second best feature
-k=1:3;
-k=setdiff(k,best_feature);
-J=0;
-for i=k
-    selected_feature=[reduced_data(:,best_feature) reduced_data(:,i) ];
-    p_w0=length(find(train_classess==0));
-    p_w1=length(find(train_classess==1));
-    
-    mu_0=mean(selected_feature(train_classess==0,:));
-    mu_0=mu_0';
-    mu_1=mean(selected_feature(train_classess==1,:));
-    mu_1=mu_1';
-    
-    mu_total=p_w0*mu_0+p_w1*mu_1;
-    %mu_total=mu_0+mu_1;
-    mu_total=mu_total';
-    Sb=p_w0*(mu_0-mu_total)*(mu_0-mu_total)' + (mu_1-mu_total)*(mu_1-mu_total)';
-    x0=selected_feature(train_classess==0,:);
-    x1=selected_feature(train_classess==1,:);
-    cov0=0;
-    for j=1:length(x0)
-        %cov0=cov0+(x0(j,:)'-mu_0)*(x0(j,:)'-mu_0)';
-        cov0=cov0+(x0(j,:)'-mu_total)*(x0(j,:)'-mu_total)';
-    end
-    cov1=0;
-    for j=1:length(x1)
-        %cov1=cov1+(x1(j,:)'-mu_1)*(x1(j,:)'-mu_1)';
-        cov1=cov1+(x1(j,:)'-mu_total)*(x1(j,:)'-mu_total)';
-    end
-
-    %Sw=p_w0*cov0+p_w1*cov1;
-    Sw=cov0+cov1;
-    J(i)=trace(Sb)/trace(Sw);
-end
-best_feature2=find(J==max(J));
-fld_reduced_data=[reduced_data(:,best_feature) reduced_data(:,best_feature2)];
-fld_best_featrues=[best_feature best_feature2];
-
-syms beta1 beta2
-beta=[beta1 beta2]';
-% Class 0
-x0=fld_reduced_data(train_classess==0,:);
-mu0=mean(x0)';
-sigma0=cov(x0);
-A0=-0.5*inv(sigma0);
-b0=inv(sigma0)*mu0;
-c0=-0.5*mu0'*sigma0*mu0-0.5*det(sigma0);
-d0=beta'*A0*beta + b0'*beta + c0;
-
-% Class 1
-x1=fld_reduced_data(train_classess==1,:);
-mu1=mean(x1)';
-sigma1=cov(x1);
-A1=-0.5*inv(sigma1);
-b1=inv(sigma1)*mu1;
-c1=-0.5*mu1'*sigma1*mu1-0.5*det(sigma1);
-d1=beta'*A1*beta + b1'*beta + c1;
-boundary=d0-d1;
-boundary_bayes_fld=boundary;
-boundary_euclidean_fld=sqrt(sum(beta-mu0).^2)-sqrt(sum(beta-mu1).^2);
-boundary_mah_fld=-0.5*(beta-mu0)' * inv(sigma0) * (beta-mu0) + 0.5*(beta-mu1)' * inv(sigma1) * (beta-mu1);
-figure
-scatter(fld_reduced_data(train_classess==0,1),fld_reduced_data(train_classess==0,2))
-hold on
-scatter(fld_reduced_data(train_classess==1,1),fld_reduced_data(train_classess==1,2))
-hold on
-fimplicit(boundary==0)
-legend('Class 1','Class 2','Boundary')
-title('Feature Reduction by Using FLD')
-
+acc_Mahalanobis_with_two_Fisher_features = sum(eq(label_test',pred_Mahalanobis))/29;
 %% G
-% Calculating Test Features
-% Calculating the first feature: Band Power
-band_f0=[0 4 8 14];
-band_f1=[3 7 13 20];
-for i=1:length(test_data)
-    EEG=test_data{i};
-    for j=1:6
-        for k=1:4
-            BW_Power_test(i,j,k)=bandpower(EEG(j,:),fs,[band_f0(k) band_f1(k)]);
-        end
-    end
+covariance = cov(all_features_train(:,[first_feature,second_feature,third_feature]));
+[eigen_vector, eigen_value] = eig(covariance);
+W = eigen_vector(:,2:3);
+new_data = W' * all_features_train(:,[first_feature,second_feature,third_feature])';
+new_data_test = W' * all_features_test(:,[first_feature,second_feature,third_feature])';
+figure();
+plot(new_data(1,index_class_1),new_data(2,index_class_1),'r*');
+hold on
+plot(new_data(1,index_class_2),new_data(2,index_class_2),'g*');
+%  plot boundary
+hold on
+ezplot(d_1==d_2,[1.5*min(new_data(1,:)),1.5*max(new_data(1,:)),1.5*min(new_data(2,:)),1.5*max(new_data(2,:))]);
+title('PCA')
+legend('class 1','class 2')
+cov_class_1 = cov(new_data(:,index_class_1)');
+cov_class_2 = cov(new_data(:,index_class_2)');
+m1 = mean(new_data(:,index_class_1)',1)';
+m2 = mean(new_data(:,index_class_2)',1)';
+% boundary of first class
+A_1 = (-0.5)*inv(cov_class_1);
+b_1 = inv(cov_class_1) * m1;
+c_1 = (-0.5)* m1' * inv(cov_class_1) * m1 - 0.5 * log(det(cov_class_1));
+d_1 = A_1(1,1)*b1^2 + A_1(2,2)*b2^2 + (A_1(1,2)+A_1(2,1))*b1*b2 + b_1(1,1)*b1 + b_1(2,1)*b2 + c_1;
+% boundary of second class
+A_2 = (-0.5)*inv(cov_class_2);
+b_2 = inv(cov_class_2) * m2;
+c_2 = (-0.5)* m2' * inv(cov_class_2) * m2 - 0.5 * log(det(cov_class_2));
+d_2 = A_2(1,1)*b1^2 + A_2(2,2)*b2^2 + (A_2(1,2)+A_2(2,1))*b1*b2 + b_2(1,1)*b1 + b_2(2,1)*b2 + c_2;
+pred_bayes = zeros(1,29);
+for i = 1:29
+    bayes_value = zeros(1,2);
+    bayes_value(1) = subs(d_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    bayes_value(2) = subs(d_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+
+    pred_bayes(1,i) = find(bayes_value==max(bayes_value));
 end
-% Calculating the second feature: Asymmetry Ratio
-for i=1:length(test_data)
-    c=1;
-    for j=1:2:5
-        for k=2:2:6
-            for l=1:4
-                R=BW_Power_test(i,k,l);
-                L=BW_Power_test(i,j,l);
-                AR_test(i,c)=(R-L)/(R+L);
-                c=c+1;
-            end
-        end
-    end
+acc_bayes_with_two_PCA_features = sum(eq(label_test',pred_bayes))/29;
+%  Euclidean distance classification
+pred_Euclidean = zeros(1,29);
+for i = 1:29
+   Euclidean_value = zeros(1,2);
+   Euclidean_value(1) = sqrt(sum((new_data_test(:,i)-m1).^2));
+   Euclidean_value(2) = sqrt(sum((new_data_test(:,i)-m2).^2));
+
+   pred_Euclidean(1,i) = find(Euclidean_value==min(Euclidean_value));
 end
-% Converting BW Power from rank 3 Tensor to rank 2 Tensor
-for i=1:length(test_data)
-    c=1;
-    for j=1:6
-        for k=1:4
-            BW_Power_Feature_test(i,c)=BW_Power_test(i,j,k);
-            c=c+1;
-        end
-    end
+acc_Euclidean_with_two_PCA_features = sum(eq(label_test',pred_Euclidean))/29;
+%  Mahalanobis distance classification
+d_M_1 = -0.5*([b1;b2]-m1)' * inv(cov_class_1) * ([b1;b2]-m1);
+d_M_2 = -0.5*([b1;b2]-m2)' * inv(cov_class_2) * ([b1;b2]-m2);
+pred_Mahalanobis = zeros(1,29);
+for i = 1:29
+    Mahalanobis_value = zeros(1,2);
+    Mahalanobis_value(1) = subs(d_M_1, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+    Mahalanobis_value(2) = subs(d_M_2, [b1, b2], [new_data_test(1,i), new_data_test(2,i)]);
+
+    pred_Mahalanobis(1,i) = find(Mahalanobis_value==min(Mahalanobis_value));
 end
-
-% Combining all features
-all_test_features=[BW_Power_Feature_test AR_test];
-
-% Extracting best features
-reduced_test_features=all_test_features(:,all_best_features);
-
-% Bayesian
-% Bayesian Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_bayes_bayesian,[beta1 beta2 beta3],reduced_test_features(i,:));
-    if dec>=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_bayes_bayesian=(TP+TN)/(TP+TN+FP+FN);
-% Euclidean Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_euclidean_bayesian,[beta1 beta2 beta3],reduced_test_features(i,:));
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_euclidean_bayesian=(TP+TN)/(TP+TN+FP+FN);
-% MAH Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_mah_bayesian,[beta1 beta2 beta3],reduced_test_features(i,:));
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_mah_bayesian=(TP+TN)/(TP+TN+FP+FN);
-
-% Entropy
-reduced_test_entropy=P_entropy'*reduced_test_features';
-% Bayesian Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_bayes_entropy,[beta1 beta2],reduced_test_entropy(:,i)');
-    if dec>=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_bayes_entropy=(TP+TN)/(TP+TN+FP+FN);
-% Euclidean Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_euclidean_entropy,[beta1 beta2],reduced_test_entropy(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_euclidean_entropy=(TP+TN)/(TP+TN+FP+FN);
-% MAH Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_mah_entropy,[beta1 beta2],reduced_test_entropy(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_mah_entropy=(TP+TN)/(TP+TN+FP+FN);
-
-% PCA
-reduced_test_pca=P_pca'*reduced_test_features';
-% Bayesian Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_bayes_pca,[beta1 beta2],reduced_test_pca(:,i)');
-    if dec>=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_bayes_pca=(TP+TN)/(TP+TN+FP+FN);
-% Euclidean Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_euclidean_pca,[beta1 beta2],reduced_test_pca(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_euclidean_pca=(TP+TN)/(TP+TN+FP+FN);
-% MAH Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_mah_pca,[beta1 beta2],reduced_test_pca(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_mah_pca=(TP+TN)/(TP+TN+FP+FN);
-% FLD
-reduced_test_fld=reduced_test_features(:,fld_best_featrues);
-% Bayesian Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_bayes_fld,[beta1 beta2],reduced_test_fld(:,i)');
-    if dec>=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_bayes_fld=(TP+TN)/(TP+TN+FP+FN);
-% Euclidean Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_euclidean_fld,[beta1 beta2],reduced_test_fld(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_euclidean_fld=(TP+TN)/(TP+TN+FP+FN);
-% MAH Distance
-for i=1:size(reduced_test_features,1)
-    dec=subs(boundary_mah_fld,[beta1 beta2],reduced_test_fld(:,i)');
-    if dec<=0
-        predicted_class(i)=0;
-    else
-        predicted_class(i)=1;
-    end
-end
-TP=length(find(predicted_class==1 & test_classess==1));
-TN=length(find(predicted_class==0 & test_classess==0));
-FP=length(find(predicted_class==1 & test_classess==0));
-FN=length(find(predicted_class==0 & test_classess==1));
-ACC_mah_fld=(TP+TN)/(TP+TN+FP+FN);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+acc_Mahalanobis_with_two_PCA_features = sum(eq(label_test',pred_Mahalanobis))/29;
